@@ -409,7 +409,7 @@ tr:hover td{background:#f9f9f9;}
 //  CONFIG
 // ══════════════════════════
 const SID='14Ew21B6BN00fCUVYK785KJodgrGNO2wzmeSCMXFCIss';
-const SHEETS={ov:'ข้อมูลรแต่ละด้าน',qt:'ข้อมูลรายไตรมาส',fc:'สรุปจํานวน KPI C15'};
+const SHEETS={ov:'ข้อมูลแต่ละด้าน',qt:'ข้อมูลรายไตรมาส',fc:'สรุปจำนวน KPI C15'};
 const TOTAL_STUDENTS=27887;
 const TARGET_PCT=10;
 const TARGET_COUNT=Math.round(TOTAL_STUDENTS*TARGET_PCT/100);
@@ -545,8 +545,10 @@ function renderOv(rows){
 let qtData=null,activeQMode='all';
 function renderQt(rows){
   qtData=rows;
-  const headers=rows[0].slice(1).filter(h=>h);
-  activeQMode='all';buildQTabs(headers);drawQt();
+  // เอาเฉพาะ header ที่มีคำว่า ไตรมาส และไม่เกิน 4 ไตรมาส
+  const allHeaders=rows[0].slice(1).filter(h=>h && h.toString().includes('ไตรมาส'));
+  qtData._headers = allHeaders.slice(0,4);
+  activeQMode='all';buildQTabs(qtData._headers);drawQt();
 }
 function buildQTabs(headers){
   const a=`<button class="tab on" onclick="setQMode('all',this)" style="background:#262626;border-color:#262626;color:#fff;font-weight:500">🗂 ทั้งหมด</button>`;
@@ -557,21 +559,23 @@ function setQMode(mode,btn){
   activeQMode=mode;
   document.querySelectorAll('#q-tabs .tab').forEach(t=>{t.style.cssText='';t.className='tab';});
   if(mode==='all'){btn.style.cssText='background:#262626;border-color:#262626;color:#fff;font-weight:500';}
-  else{const headers=qtData[0].slice(1).filter(h=>h);const qi=headers.indexOf(mode);btn.style.cssText=`background:${CQ[qi]};border-color:${CQ[qi]};color:#fff;font-weight:500`;}
+  else{const headers=qtData._headers||qtData[0].slice(1).filter(h=>h&&h.toString().includes('ไตรมาส')).slice(0,4);const qi=headers.indexOf(mode);btn.style.cssText=`background:${CQ[qi]};border-color:${CQ[qi]};color:#fff;font-weight:500`;}
   drawQt();
 }
 function drawQt(){
-  const headers=qtData[0].slice(1).filter(h=>h);
-  const data=qtData.slice(1).filter(r=>r[0]&&r[0]!=='รวม');
+  const headers=qtData._headers || qtData[0].slice(1).filter(h=>h&&h.toString().includes('ไตรมาส')).slice(0,4);
+  const allHeaders=qtData[0].slice(1).filter(h=>h);
+  const data=qtData.slice(1).filter(r=>r[0]&&r[0].toString().trim()!==''&&r[0]!=='รวม').slice(0,5);
   const labels=data.map(r=>r[0]);
   let ds;
   if(activeQMode==='all'){
-    ds=headers.map((q,i)=>rDs(q,data.map(r=>n(r[i+1])),CQ[i]));
+    ds=headers.map((q,i)=>{const ai=allHeaders.indexOf(q);return rDs(q,data.map(r=>n(r[ai+1])),CQ[i]);});
     legend('lgd-qt',headers.map((q,i)=>({label:q,color:CQ[i]})));
   } else {
     const qi=headers.indexOf(activeQMode);
     ds=headers.map((q,i)=>{
-      const v=data.map(r=>n(r[i+1]));
+      const ai=allHeaders.indexOf(q);
+      const v=data.map(r=>n(r[ai+1]));
       if(i===qi) return rDs(q,v,CQ[i]);
       return rDs(q,v,CQ[i],{borderWidth:1,pointRadius:2,backgroundColor:CQ[i]+'10',borderColor:CQ[i]+'50',pointBackgroundColor:CQ[i]+'50'});
     });
