@@ -451,7 +451,7 @@ function n(v){const x=parseFloat(String(v||0).replace(/,/g,''));return isNaN(x)?
 //  RENDER PROGRESS + DIM CARDS
 // ══════════════════════════
 function renderSummary(ovRows){
-  const data=ovRows.slice(1).filter(r=>r[0]);
+  const data=ovRows.slice(1).filter(r=>r[0] && r[0].toString().trim()!=='').slice(0,5);
   const vals=data.map(r=>n(r[1]));
   const total=vals.reduce((s,v)=>s+v,0);
 
@@ -531,7 +531,7 @@ function legend(elId,items){
 //  RENDER OVERVIEW
 // ══════════════════════════
 function renderOv(rows){
-  const data=rows.slice(1).filter(r=>r[0]);
+  const data=rows.slice(1).filter(r=>r[0] && r[0].toString().trim()!=='').slice(0,5);
   const labels=data.map(r=>r[0]);
   const vals=data.map(r=>n(r[1]));
   mkRadar('cvOv',labels,[rDs('จำนวนรวม',vals,'#0095f6')]);
