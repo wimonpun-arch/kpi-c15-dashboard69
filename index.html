@@ -563,26 +563,25 @@ function setQMode(mode,btn){
   drawQt();
 }
 function drawQt(){
-  // dimLabels = ชื่อด้าน (labels radar), qRows = แถวข้อมูลแต่ละไตรมาส
   const dimLabels=qtData._dimLabels||qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,5);
   const qNames=qtData._qNames||qtData.slice(1).map(r=>r[0]).filter(h=>h&&h.toString().trim()!="").slice(0,4);
   const qRows=qtData.slice(1).filter(r=>r[0]&&r[0].toString().trim()!="").slice(0,4);
   let ds;
   if(activeQMode==='all'){
+    // แสดงทุกไตรมาส
     ds=qRows.map((row,i)=>{
       const vals=dimLabels.map((_,di)=>n(row[di+1]));
       return rDs(qNames[i]||('Q'+(i+1)),vals,CQ[i]);
     });
     legend('lgd-qt',qNames.map((q,i)=>({label:q,color:CQ[i]})));
   } else {
+    // แสดงเฉพาะไตรมาสที่เลือก — dataset เดียว
     const qi=qNames.indexOf(activeQMode);
-    ds=qRows.map((row,i)=>{
-      const vals=dimLabels.map((_,di)=>n(row[di+1]));
-      const q=qNames[i]||('Q'+(i+1));
-      if(i===qi) return rDs(q,vals,CQ[i]);
-      return rDs(q,vals,CQ[i],{borderWidth:1,pointRadius:2,backgroundColor:CQ[i]+'10',borderColor:CQ[i]+'50',pointBackgroundColor:CQ[i]+'50'});
-    });
-    legend('lgd-qt',qNames.map((q,i)=>({label:q+(i===qi?' ◀':''),color:CQ[i]})));
+    if(qi<0||qi>=qRows.length){ mkRadar('cvQt',dimLabels,[]); return; }
+    const row=qRows[qi];
+    const vals=dimLabels.map((_,di)=>n(row[di+1]));
+    ds=[rDs(qNames[qi]||('Q'+(qi+1)),vals,CQ[qi])];
+    legend('lgd-qt',[{label:qNames[qi]||('Q'+(qi+1)),color:CQ[qi]}]);
   }
   mkRadar('cvQt',dimLabels,ds);
 }
