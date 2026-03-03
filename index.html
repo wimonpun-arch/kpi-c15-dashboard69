@@ -61,6 +61,10 @@ body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);font-
   color:rgba(255,255,255,.75);backdrop-filter:blur(6px);
 }
 .hpill-green{background:rgba(88,195,34,.2);border-color:rgba(88,195,34,.35);color:#9ef56a;}
+.refresh-btn{cursor:pointer;font-family:'Kanit',sans-serif;transition:background .2s,transform .15s;}
+.refresh-btn:hover{background:rgba(255,255,255,.22);transform:scale(1.06);}
+.refresh-btn:active{transform:scale(.95);}
+.refresh-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
 
 /* ══ WRAP ══ */
 .wrap{max-width:1160px;margin:0 auto;padding:20px 16px 52px;}
@@ -258,13 +262,9 @@ tr:hover td{background:#f9f9f9;}
   <div class="hero-pills">
     <div class="hpill" id="src-status">📋 ข้อมูล ณ ไตรมาส 2/2569</div>
     <div class="hpill" id="update-time">—</div>
-    <div class="cd-pill" title="อัปเดตข้อมูลอัตโนมัติทุก 60 วินาที">
-      <svg class="cd-svg" viewBox="0 0 20 20">
-        <circle class="cd-track" cx="10" cy="10" r="9"/>
-        <circle class="cd-ring" id="cd-ring" cx="10" cy="10" r="9"/>
-      </svg>
-      <span id="cd-num">60</span>s
-    </div>
+    <button class="hpill refresh-btn" id="refresh-btn" onclick="manualRefresh()" title="ดึงข้อมูลใหม่จาก Google Sheets">
+      🔄 รีเฟรช
+    </button>
   </div>
 </div>
 
@@ -737,21 +737,10 @@ async function init(){
   if(ok===3){st.textContent='✅ Sheets สด';st.className='hpill hpill-green';}
   else{st.textContent='📋 ข้อมูล ณ ไตรมาส 2/2569';}
 }
-// ══ AUTO-REFRESH 60s ══
-const REFRESH_SEC=60;
-let countdown=REFRESH_SEC, cdTimer=null;
-function startCountdown(){
-  clearInterval(cdTimer); countdown=REFRESH_SEC; updateCD();
-  cdTimer=setInterval(async()=>{ countdown--; updateCD(); if(countdown<=0){countdown=REFRESH_SEC;await refreshData();} },1000);
-}
-function updateCD(){
-  const el=document.getElementById('cd-num'); if(!el) return;
-  el.textContent=countdown;
-  const ring=document.getElementById('cd-ring');
-  if(ring){ const c=2*Math.PI*9; ring.style.strokeDashoffset=c*(1-countdown/REFRESH_SEC); }
-}
-async function refreshData(){
-  const el=document.getElementById('cd-num'); if(el) el.textContent='…';
+// ══ MANUAL REFRESH ══
+async function manualRefresh(){
+  const btn=document.getElementById('refresh-btn');
+  if(btn){ btn.textContent='⏳ กำลังโหลด...'; btn.disabled=true; }
   let ok=0;
   try{renderOv(await fetchSheet(SHEETS.ov));ok++;}catch(e){console.warn('[OV]',e);}
   try{qtData=null;activeQMode='all';renderQt(await fetchSheet(SHEETS.qt));ok++;}catch(e){console.warn('[QT]',e);}
@@ -761,8 +750,9 @@ async function refreshData(){
   const st=document.getElementById('src-status');
   if(ok===3){st.textContent='✅ Sheets สด';st.className='hpill hpill-green';}
   else{st.textContent='📋 ข้อมูล ณ ไตรมาส 2/2569';st.className='hpill';}
+  if(btn){ btn.textContent='✅ อัปเดตแล้ว'; setTimeout(()=>{ btn.textContent='🔄 รีเฟรช'; btn.disabled=false; },2000); }
 }
-window.addEventListener('load',async()=>{ await init(); startCountdown(); });
+window.addEventListener('load', init);
 </script>
 </body>
 </html>
