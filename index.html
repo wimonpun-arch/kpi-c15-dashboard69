@@ -451,7 +451,7 @@ function n(v){const x=parseFloat(String(v||0).replace(/,/g,''));return isNaN(x)?
 //  RENDER PROGRESS + DIM CARDS
 // ══════════════════════════
 function renderSummary(ovRows){
-  const data=ovRows.slice(1).filter(r=>r[0] && r[0].toString().trim()!=='').slice(0,5);
+  const data=ovRows.slice(1).filter(r=>r[0]&&r[0].toString().trim()!==''&&r[0].toString().trim()!=='ด้าน'&&isNaN(Number(r[0].toString().trim()))).slice(0,5);
   const vals=data.map(r=>n(r[1]));
   const total=vals.reduce((s,v)=>s+v,0);
 
@@ -546,7 +546,7 @@ let qtData=null,activeQMode='all';
 function renderQt(rows){
   qtData=rows;
   // เอาเฉพาะ header ที่มีคำว่า ไตรมาส และไม่เกิน 4 ไตรมาส
-  const allHeaders=rows[0].slice(1).filter(h=>h && h.toString().includes('ไตรมาส'));
+  const allHeaders=rows[0].slice(1).filter(h=>h && h.toString().trim()!="");
   qtData._headers = allHeaders.slice(0,4);
   activeQMode='all';buildQTabs(qtData._headers);drawQt();
 }
@@ -559,11 +559,11 @@ function setQMode(mode,btn){
   activeQMode=mode;
   document.querySelectorAll('#q-tabs .tab').forEach(t=>{t.style.cssText='';t.className='tab';});
   if(mode==='all'){btn.style.cssText='background:#262626;border-color:#262626;color:#fff;font-weight:500';}
-  else{const headers=qtData._headers||qtData[0].slice(1).filter(h=>h&&h.toString().includes('ไตรมาส')).slice(0,4);const qi=headers.indexOf(mode);btn.style.cssText=`background:${CQ[qi]};border-color:${CQ[qi]};color:#fff;font-weight:500`;}
+  else{const headers=qtData._headers||qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,4);const qi=headers.indexOf(mode);btn.style.cssText=`background:${CQ[qi]};border-color:${CQ[qi]};color:#fff;font-weight:500`;}
   drawQt();
 }
 function drawQt(){
-  const headers=qtData._headers || qtData[0].slice(1).filter(h=>h&&h.toString().includes('ไตรมาส')).slice(0,4);
+  const headers=qtData._headers || qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,4);
   const allHeaders=qtData[0].slice(1).filter(h=>h);
   const data=qtData.slice(1).filter(r=>r[0]&&r[0].toString().trim()!==''&&r[0]!=='รวม').slice(0,5);
   const labels=data.map(r=>r[0]);
