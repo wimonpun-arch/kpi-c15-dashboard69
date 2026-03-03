@@ -396,11 +396,6 @@ tr:hover td{background:#f9f9f9;}
     </div>
   </div>
 
-  <div class="note">
-    💡 <strong>หมายเหตุ:</strong>
-    Dashboard ดึงข้อมูลจาก Google Sheets ID <code>14Ew21B6BN00fCUVYK785KJodgrGNO2wzmeSCMXFCIss</code>
-    — กรุณาตั้งค่าเป็น <strong>"ทุกคนที่มีลิงก์ดูได้"</strong> เพื่อให้ดึงข้อมูลสดอัตโนมัติ
-  </div>
 
 </div>
 
@@ -450,8 +445,9 @@ function n(v){const x=parseFloat(String(v||0).replace(/,/g,''));return isNaN(x)?
 // ══════════════════════════
 //  RENDER PROGRESS + DIM CARDS
 // ══════════════════════════
-function renderSummary(ovRows){
-  const data=ovRows.slice(1).filter(r=>r[0]&&r[0].toString().trim()!==''&&r[0].toString().trim()!=='ด้าน'&&isNaN(Number(r[0].toString().trim()))).slice(0,5);
+function renderSummary(rows){
+  // rows = data array ที่ filter แล้วจาก renderOv (ไม่มี header, col[0]=ชื่อ, col[1]=จำนวน)
+  const data=Array.isArray(rows[0]) ? rows.filter(r=>r[0]&&r[0].toString().trim()!==''&&!isNaN(parseFloat(String(r[1]||'').replace(/,/g,'')))).slice(0,5) : [];
   const vals=data.map(r=>n(r[1]));
   const total=vals.reduce((s,v)=>s+v,0);
 
@@ -531,7 +527,8 @@ function legend(elId,items){
 //  RENDER OVERVIEW
 // ══════════════════════════
 function renderOv(rows){
-  const data=rows.slice(1).filter(r=>r[0] && r[0].toString().trim()!=='').slice(0,5);
+  // ไม่มี header row: col[0]=ชื่อด้าน, col[1]=จำนวน
+  const data=rows.filter(r=>r[0]&&r[0].toString().trim()!==''&&!isNaN(parseFloat(String(r[1]||'').replace(/,/g,'')))).slice(0,5);
   const labels=data.map(r=>r[0]);
   const vals=data.map(r=>n(r[1]));
   mkRadar('cvOv',labels,[rDs('จำนวนรวม',vals,'#0095f6')]);
@@ -545,10 +542,13 @@ function renderOv(rows){
 let qtData=null,activeQMode='all';
 function renderQt(rows){
   qtData=rows;
-  // เอาเฉพาะ header ที่มีคำว่า ไตรมาส และไม่เกิน 4 ไตรมาส
-  const allHeaders=rows[0].slice(1).filter(h=>h && h.toString().trim()!="");
-  qtData._headers = allHeaders.slice(0,4);
-  activeQMode='all';buildQTabs(qtData._headers);drawQt();
+  // Sheet: row[0]=header (A=ไตรมาส, B-F=ชื่อด้าน), rows[1-4]=ข้อมูลแต่ละไตรมาส
+  // ชื่อไตรมาส = col[0] ของแถวข้อมูล, ชื่อด้าน = col[1-5] ของ header
+  const qNames=rows.slice(1).map(r=>r[0]).filter(h=>h&&h.toString().trim()!="").slice(0,4);
+  const dimLabels=rows[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,5);
+  qtData._qNames=qNames;
+  qtData._dimLabels=dimLabels;
+  activeQMode='all';buildQTabs(qNames);drawQt();
 }
 function buildQTabs(headers){
   const a=`<button class="tab on" onclick="setQMode('all',this)" style="background:#262626;border-color:#262626;color:#fff;font-weight:500">🗂 ทั้งหมด</button>`;
@@ -559,29 +559,32 @@ function setQMode(mode,btn){
   activeQMode=mode;
   document.querySelectorAll('#q-tabs .tab').forEach(t=>{t.style.cssText='';t.className='tab';});
   if(mode==='all'){btn.style.cssText='background:#262626;border-color:#262626;color:#fff;font-weight:500';}
-  else{const headers=qtData._headers||qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,4);const qi=headers.indexOf(mode);btn.style.cssText=`background:${CQ[qi]};border-color:${CQ[qi]};color:#fff;font-weight:500`;}
+  else{const qn=qtData._qNames||[];const qi=qn.indexOf(mode);const col=CQ[qi]||CQ[0];btn.style.cssText=`background:${col};border-color:${col};color:#fff;font-weight:500`;}
   drawQt();
 }
 function drawQt(){
-  const headers=qtData._headers || qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,4);
-  const allHeaders=qtData[0].slice(1).filter(h=>h);
-  const data=qtData.slice(1).filter(r=>r[0]&&r[0].toString().trim()!==''&&r[0]!=='รวม').slice(0,5);
-  const labels=data.map(r=>r[0]);
+  // dimLabels = ชื่อด้าน (labels radar), qRows = แถวข้อมูลแต่ละไตรมาส
+  const dimLabels=qtData._dimLabels||qtData[0].slice(1).filter(h=>h&&h.toString().trim()!="").slice(0,5);
+  const qNames=qtData._qNames||qtData.slice(1).map(r=>r[0]).filter(h=>h&&h.toString().trim()!="").slice(0,4);
+  const qRows=qtData.slice(1).filter(r=>r[0]&&r[0].toString().trim()!="").slice(0,4);
   let ds;
   if(activeQMode==='all'){
-    ds=headers.map((q,i)=>{const ai=allHeaders.indexOf(q);return rDs(q,data.map(r=>n(r[ai+1])),CQ[i]);});
-    legend('lgd-qt',headers.map((q,i)=>({label:q,color:CQ[i]})));
-  } else {
-    const qi=headers.indexOf(activeQMode);
-    ds=headers.map((q,i)=>{
-      const ai=allHeaders.indexOf(q);
-      const v=data.map(r=>n(r[ai+1]));
-      if(i===qi) return rDs(q,v,CQ[i]);
-      return rDs(q,v,CQ[i],{borderWidth:1,pointRadius:2,backgroundColor:CQ[i]+'10',borderColor:CQ[i]+'50',pointBackgroundColor:CQ[i]+'50'});
+    ds=qRows.map((row,i)=>{
+      const vals=dimLabels.map((_,di)=>n(row[di+1]));
+      return rDs(qNames[i]||('Q'+(i+1)),vals,CQ[i]);
     });
-    legend('lgd-qt',headers.map((q,i)=>({label:q+(i===qi?' ◀':''),color:CQ[i]})));
+    legend('lgd-qt',qNames.map((q,i)=>({label:q,color:CQ[i]})));
+  } else {
+    const qi=qNames.indexOf(activeQMode);
+    ds=qRows.map((row,i)=>{
+      const vals=dimLabels.map((_,di)=>n(row[di+1]));
+      const q=qNames[i]||('Q'+(i+1));
+      if(i===qi) return rDs(q,vals,CQ[i]);
+      return rDs(q,vals,CQ[i],{borderWidth:1,pointRadius:2,backgroundColor:CQ[i]+'10',borderColor:CQ[i]+'50',pointBackgroundColor:CQ[i]+'50'});
+    });
+    legend('lgd-qt',qNames.map((q,i)=>({label:q+(i===qi?' ◀':''),color:CQ[i]})));
   }
-  mkRadar('cvQt',labels,ds);
+  mkRadar('cvQt',dimLabels,ds);
 }
 
 // ══════════════════════════
@@ -622,8 +625,9 @@ function drawFc(filter){
     }
   });
   legend('lgd-fc',DIM_SHORT.map((d,i)=>({label:`${DIM_EMOJI[i]} ${d} ${DIM_FULL[i]}`,color:C5[i],sq:true})));
-  const actual=data.map(r=>n(r[9]));
-  const target=data.map(r=>n(r[10]));
+  // col[8]=สัดส่วน%จริง, col[9]=ร้อยละเป้า
+  const actual=data.map(r=>n(r[8]));
+  const target=data.map(r=>n(r[9]));
   const gap=data.map((_,i)=>parseFloat(Math.max(0,target[i]-actual[i]).toFixed(2)));
   renderFacTable(data,actual,target,gap);
 }
@@ -683,40 +687,48 @@ function renderFacTable(data,actual,target,gap){
 
 // ══════════════════════════
 //  STATIC DATA
-// ══════════════════════════
-const REAL_OV=[['ด้าน','จำนวน'],
-  ['ด้านที่ 1\nการเป็นผู้นำ',10],['ด้านที่ 2\nการเป็นผู้ประกอบการ',78],
-  ['ด้านที่ 3\nการเป็นพลเมืองโลก',155],['ด้านที่ 4\nทักษะด้านดิจิทัล',0],
-  ['ด้านที่ 5\nการมีสุขภาวะที่ดี',305]];
-const REAL_QT=[['ด้าน','ไตรมาสที่ 1','ไตรมาสที่ 2','ไตรมาสที่ 3','ไตรมาสที่ 4'],
-  ['ด้านที่ 1\nการเป็นผู้นำ',0,10,0,0],['ด้านที่ 2\nการเป็นผู้ประกอบการ',0,78,0,0],
-  ['ด้านที่ 3\nการเป็นพลเมืองโลก',2,153,0,0],['ด้านที่ 4\nทักษะด้านดิจิทัล',0,0,0,0],
-  ['ด้านที่ 5\nการมีสุขภาวะที่ดี',133,172,0,0]];
-const FC_H=['ลำดับ','คณะ/ส่วนงาน','ด้านที่ 1','ด้านที่ 2','ด้านที่ 3','ด้านที่ 4','ด้านที่ 5','จำนวนนิสิต','สัดส่วน%','%Dashboard','%เป้า'];
-const FC_R=[
-  [1,'คณะดนตรีและการแสดง','','',6,'','',735,0.82,0.82,2],
-  [2,'คณะบริหารธุรกิจ','','','','',4,1995,0.20,0.20,12],
-  [3,'คณะพยาบาลศาสตร์','','','','',4,823,0.49,0.49,20],
-  [4,'คณะมนุษยศาสตร์และสังคมศาสตร์','','',23,'',25,4360,1.10,1.10,11],
-  [5,'คณะรัฐศาสตร์และนิติศาสตร์',3,64,39,'',18,2229,5.56,5.56,11],
-  [6,'คณะวิทยาการสารสนเทศ','','','','',4,1552,0.26,0.26,11],
-  [7,'คณะวิทยาศาสตร์','','','','',7,2849,0.25,0.25,5],
-  [8,'คณะวิทยาศาสตร์การกีฬา','','',17,'',126,767,18.64,18.64,15],
-  [9,'คณะวิทยาศาสตร์และศิลปศาสตร์','','','','','',646,0.00,0.00,10],
-  [10,'คณะวิทยาศาสตร์และสังคมศาสตร์','','','','','',300,0.00,0.00,15],
-  [11,'คณะวิศวกรรมศาสตร์','','','','',15,2431,0.62,0.62,11],
-  [12,'คณะศิลปกรรมศาสตร์','','','','',2,803,0.25,0.25,11],
-  [13,'คณะศึกษาศาสตร์','','',2,'',79,1873,4.32,4.32,8],
-  [14,'คณะสหเวชศาสตร์','','',1,'',3,1450,0.28,0.28,10],
-  [15,'คณะสาธารณสุขศาสตร์','','','','',8,800,1.00,1.00,5],
-  [16,'คณะเภสัชศาสตร์',7,'',3,'','',1020,0.98,0.98,11],
-  [17,'คณะแพทยศาสตร์','','','','',1,370,0.27,0.27,20],
-  [18,'คณะโลจิสติกส์','','',1,'',8,1832,0.49,0.49,10],
-  [19,'วิทยาลัยนานาชาติ','',14,63,'',1,641,12.17,12.17,18],
-  [20,'คณะอัญมณี','','','','','',143,0.00,0.00,11],
-  [21,'คณะเทคโนโลยีทางทะเล','','','','','',232,0.00,0.00,10],
-  [22,'คณะเทคโนโลยีการเกษตร','','','','','',36,0.00,0.00,11]];
+// STATIC DATA (fallback ตรงกับโครงสร้าง Sheet จริง)
+// Sheet ข้อมูลแต่ละด้าน: ไม่มี header row, col[0]=ชื่อ, col[1]=จำนวน
+const REAL_OV=[
+  ['ด้านที่ 1 การเป็นผู้นำ',10],
+  ['ด้านที่ 2 การเป็นผู้ประกอบการ',78],
+  ['ด้านที่ 3 การเป็นพลเมืองโลก',155],
+  ['ด้านที่ 4 ทักษะด้านดิจิทัล',0],
+  ['ด้านที่ 5 การมีสุขภาวะที่ดี',305]];
 
+// Sheet ข้อมูลรายไตรมาส: row[0]=header(A=ไตรมาส,B-F=ชื่อด้าน), rows[1-4]=ข้อมูล
+const REAL_QT=[
+  ['ไตรมาส','ด้านที่ 1 การเป็นผู้นำ','ด้านที่ 2 การเป็นผู้ประกอบการ','ด้านที่ 3 การเป็นพลเมืองโลก','ด้านที่ 4 ทักษะด้านดิจิทัล','ด้านที่ 5 การมีสุขภาวะที่ดี'],
+  ['ไตรมาสที่ 1',0,0,2,0,133],
+  ['ไตรมาสที่ 2',10,78,153,0,172],
+  ['ไตรมาสที่ 3',0,0,0,0,0],
+  ['ไตรมาสที่ 4',0,0,0,0,0]];
+
+// Sheet สรุปจำนวน: col[0]=ลำดับ,[1]=คณะ,[2-6]=ด้าน1-5,[7]=นิสิต,[8]=สัดส่วน%,[9]=เป้า%
+const FC_H=['ลำดับ','คณะ/ส่วนงาน','ด้านที่ 1','ด้านที่ 2','ด้านที่ 3','ด้านที่ 4','ด้านที่ 5','จำนวนนิสิต','สัดส่วน%จริง','ร้อยละเป้า'];
+const FC_R=[
+  [1,'คณะดนตรีและการแสดง',0,0,6,0,0,735,0.82,2],
+  [2,'คณะบริหารธุรกิจ',0,0,0,0,4,1995,0.20,12],
+  [3,'คณะพยาบาลศาสตร์',0,0,0,0,4,823,0.49,20],
+  [4,'คณะมนุษยศาสตร์และสังคมศาสตร์',0,0,23,0,25,4360,1.10,11],
+  [5,'คณะรัฐศาสตร์และนิติศาสตร์',3,64,39,0,18,2229,5.56,11],
+  [6,'คณะวิทยาการสารสนเทศ',0,0,0,0,4,1552,0.26,11],
+  [7,'คณะวิทยาศาสตร์',0,0,0,0,7,2849,0.25,5],
+  [8,'คณะวิทยาศาสตร์การกีฬา',0,0,17,0,126,767,18.64,15],
+  [9,'คณะวิทยาศาสตร์และศิลปศาสตร์',0,0,0,0,0,646,0.00,10],
+  [10,'คณะวิทยาศาสตร์และสังคมศาสตร์',0,0,0,0,0,300,0.00,15],
+  [11,'คณะวิศวกรรมศาสตร์',0,0,0,0,15,2431,0.62,11],
+  [12,'คณะศิลปกรรมศาสตร์',0,0,0,0,2,803,0.25,11],
+  [13,'คณะศึกษาศาสตร์',0,0,2,0,79,1873,4.32,8],
+  [14,'คณะสหเวชศาสตร์',0,0,1,0,3,1450,0.28,10],
+  [15,'คณะสาธารณสุขศาสตร์',0,0,0,0,8,800,1.00,5],
+  [16,'คณะเภสัชศาสตร์',7,0,3,0,0,1020,0.98,11],
+  [17,'คณะแพทยศาสตร์',0,0,0,0,1,370,0.27,20],
+  [18,'คณะโลจิสติกส์',0,0,1,0,8,1832,0.49,10],
+  [19,'วิทยาลัยนานาชาติ',0,14,63,0,1,641,12.17,18],
+  [20,'คณะอัญมณี',0,0,0,0,0,143,0.00,11],
+  [21,'คณะเทคโนโลยีทางทะเล',0,0,0,0,0,232,0.00,10],
+  [22,'คณะเทคโนโลยีการเกษตร',0,0,0,0,0,36,0.00,11]];
 function sampleOv(){renderOv(REAL_OV);}
 function sampleQt(){renderQt(REAL_QT);}
 function sampleFc(){renderFc([FC_H,...FC_R.map(r=>r.map(String))]);}
